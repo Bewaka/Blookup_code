@@ -718,9 +718,9 @@ class WisappConfig {
 	/* This Function gets the History of things the waki searches for 
 	/* @return array of History
 	*/
-	function getHistory(){
+	function getHistory($number){
 	
-		$history = $this->History->find('id', array("conditions"=>array("wis_id"=>$this_id)));
+		$history = $this->History->find('id', array("conditions"=>array("wis_id"=>$this_id), 'limit' => $number) );
 		return $history;
 	}
 	
@@ -863,7 +863,14 @@ class WisappConfig {
 		
 		function delete(){
 		
-			
+			$this->Wisapp->delete($this->id);
+		
+		}
+		
+		function update($data){
+		
+			$this->data['Wisapp']['id'] = $this->id;
+			$this->Wisapp->save($data);
 		}
 	
 	}
