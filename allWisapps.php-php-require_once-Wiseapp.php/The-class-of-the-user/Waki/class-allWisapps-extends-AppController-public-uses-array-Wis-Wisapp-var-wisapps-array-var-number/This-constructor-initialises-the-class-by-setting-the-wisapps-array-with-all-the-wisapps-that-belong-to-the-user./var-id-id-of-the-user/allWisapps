@@ -1,0 +1,65 @@
+<?php
+	require_once("Wiseapp.php");
+	/* The class of the user/Waki */
+	
+	class allWisapps extends AppController {
+	
+	public $uses = array('Wis','Wisapp');
+	
+	var $wisapps = array();
+	var $number;
+	
+	
+	/*
+	/* This constructor initialises the class by setting the $wisapps array with all the wisapps that belong to the user.
+	/*@var id: id of the user
+	/*
+	*/
+	
+	function __construct($id = null) {
+			
+			
+			if($id == null){
+				$wisapps = $this->Wisapp->find('all');
+				foreach($wisapps as $wisapp){
+			
+					$this->wisapps[] =  new Wiseapp($wisapp['Wisapp']['id']);
+				
+				}
+			}
+			else{
+			
+				$user = $this->Wis->findById($id);
+				$favorites = $user['Favorite'];
+				
+				foreach($favorites as $favorite){
+			
+					$this->wisapps[] =  new Wiseapp($favorite['wisapp_id']);
+				
+				}
+				
+			}
+			
+			
+			$this->number = count($this->wisapps);
+		}
+		
+		
+		
+	function filterBy($string){
+		
+		$result = array();
+		
+		$wisapps  = $this->Wisapp->find('all', array("conditions"=>array("name"=>$string)));
+			
+			foreach($wisapps as $wisapp){
+			
+				$result =  new Wiseapp($wisapp['Wisapp']['id']);
+			}	
+			
+		return result;
+		
+	}
+	
+	}
+	?>
