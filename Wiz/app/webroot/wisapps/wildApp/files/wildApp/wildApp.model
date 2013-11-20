@@ -1,0 +1,10 @@
+
+public function display($id) {
+		
+		
+		$result = $model->find('all', array('conditions'=>array('Example.description LIKE'=> '%'.$id.'%')));
+		
+		return  $result;
+		
+        
+    }

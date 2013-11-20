@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<wisapp>
+	<name>Companies</name>
+	<description>List of companies in africa</description>
+	<tags>
+		<tag>business</tag>
+		<tag>africa</tag>
+	</tags>
+	<version>0.5</version>
+	<logo>logo.jpg</logo>
+	<entities>
+		<entity name="Companies">
+			<fields>
+				<field datatype="string" required="true">name</field>
+				<field datatype="string" required="true" length="500">description</field>
+				<field datatype="country" required="true">country</field>
+				<field datatype="date" required="true">created</field>
+			</fields>
+		</entity>
+	</entities>
+</wisapp>
+	

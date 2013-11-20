@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<wisapp>
+	<name>WildApp</name>
+	<description>This is a WisApp to display information about wild animals</description>
+	
+		<tag>business</tag>
+		<tag>africa</tag>
+	
+	<version>0.5</version>
+	<logo>logo.jpg</logo>
+	<entities>
+		<entity name="Animal">
+			<fields>
+				<field datatype="varchar(20)" required="true">name</field>
+				<field datatype="text" required="true" length="500">description</field>
+				<field datatype="varchar(20)" required="true">country</field>
+				<field datatype="varchar(20)" required="true">type</field>
+			</fields>
+		</entity>
+		<entity name="Example">
+			<fields>
+				<field datatype="varchar(50)" required="true">name</field>
+				<field datatype="varchar(500)" required="true" length="500">description</field>
+				<field datatype="varchar(20)" required="true">country</field>
+				<field datatype="date" required="true">created</field>
+			</fields>
+		</entity>
+	</entities>
+</wisapp>
