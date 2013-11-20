@@ -1,6 +1,11 @@
 <?php
 App::uses('Folder', 'Utility');
 App::uses('File', 'Utility');
+
+require_once("Wiseapp.php");
+include "Waki.php";
+include "allWisapps.php";
+
 class WisController extends AppController{
 
 	public $uses = array('Wis', 'Example', 'Wisapp');
@@ -27,11 +32,9 @@ class WisController extends AppController{
 		
 		public function index(){
 		
-		$models = App::Objects('Model');
-		
-		
 		$user = $this->Auth->user();
 		$this->set('user', $user);
+		
 		
 		if ($this->request->is('post')) {
             
@@ -44,7 +47,13 @@ class WisController extends AppController{
 					$data = explode(':', $this->request->data['Example']['search']);
 					$wisapp_name = end($data);
 					$id = $data[0];
-			}		
+			}	
+			$search = explode(' ', $this->request->data['Example']['search']);
+			$wisapps = $this->_executeWisapp($search);
+			
+			if(count($wisapps))
+			var_dump($wisapps[0]['points']);
+			
 			
 			$this->set('wisapp_name', $wisapp_name);
 			
@@ -362,517 +371,56 @@ class WisController extends AppController{
 		
 	}
 	
-	public function apps($id){
-	
+	function _executeWisapp($search){
 		
-		$user = $this->Auth->user();
-		$this->set('user', $user);
-		
-		$users = $this->Wis->find('all', array('conditions'=>array('Wis.id'=>$id)));
-		
-		$this->set('waki', $users);
-	
-	}
-	
-	public function app($id){
-	
-		$app = $this->Wisapp->find('all', array('conditions'=>array('id'=>$id)));
-		$this->set('app', $app);
-	}
-	
-	public function create_app(){
-		
-		if ($this->request->is('post')) {
-            $this->Wisapp->create();
-			$this->request->data['Wisapp']['logo'] = $this->request->data['Wisapp']['logo']['name'];
-			//$this->request->data['Wisapp']['wis_id'] = $id; //USES AUTO INCREMENT HERE
-			$config = new WisappConfig('../upload/wisapp/config.xml');
-			//echo var_dump($config->getWisapp());
-            if ($this->Wisapp->save($config->getWisapp())) {
-				
-				$sql = $config->generateSQLScript();
-				$this->Wisapp->query($sql);
-              //  $this->Session->setFlash(__('WisApp created.'));
-				
-				//$userId=$this->Wis->getLastInsertID();
-				//$user = $this->Wis->findById($userId);
-				
-				//$this->Wis->sendVerificationMail($user);
-				
-				//$path = new File('/wisapp/config.xml');
-				
-				
-				
-                return $this->redirect(array('controller'=>'wis','action' => 'apps', 10));
-            }
-            $this->Session->setFlash(__('The user could not be saved. Please, try again.'));
-        }
-	}
-	
-	function upload_files(){
-	
-		
-	}
-	
-	public function add_app(){
-		$user = $this->Auth->user();
-		$this->set('user', $user);
-		if ($this->request->is('post')) {
-		
-			/* Use AppController function to upload file*/
-			$res = $this->uploadFIles('files/uploads', $this->request->data, null);
+		$wisapps = new allWisapps();
+		$candidates = array();
+		$i=0;
+		foreach($wisapps->wisapps as $wisapp){
 			
-			/*Check if the file was uploaded sucessfully*/
-			if(isset($res['success'])){
-				$this->Session->setFlash($res['success']);
-				$zip = new ZipArchive;
+			if($p = $wisapp->canExecute($search)){
 				
-				$zip_files = $zip->open($res['urls'][0]);
-				if ($zip_files === TRUE) {
-					/* REMOVE .ZIP OR .RAR FROM NAME OF THE COMPRESSED FILE*/
-					$res['name'] = str_replace(".zip","",$res['name']);
-					$res['name'] = str_replace(".rar","",$res['name']);
-					
-					$zip->extractTo('wisapps/'.$res['name'].'/files/');
-					$zip->close();
-					
-					/*Check if config, view and model files are present*/
-					$files = scandir('wisapps/'.$res['name'].'/files/'.$res['name']);
-					$check = 0;
-					if(in_array($res['name'].'.model', $files)){
-						$check++;
-						
-					}
-					else{
-						$this->Session->setFlash('Model File not Found');
-					}
-					
-					if(in_array($res['name'].'.view', $files)){
-						$check++;
-					}
-					else{
-						$this->Session->setFlash('View File not Found');
-					}
-					
-					if(in_array('config.xml', $files)){
-						$check++;
-					}
-					else{
-						$this->Session->setFlash('Configuration File not Found');
-					}
-					
-					
-					
-					if($check == 3){
-						
-						
-						$wisapp = new WisappConfig('wisapps/'.$res['name'].'/files/'.$res['name'].'/config.xml');
-
-						$wis = $wisapp->getWisapp();
-						
-						$entities = $wisapp->generateSQLScript();
-						
-						/* Create Necessary tables for entities that don't exist and are specified in config file*/
-						foreach($entities['create'] as $create)
-							$this->Wis->query($create);
-							
-						/*Add atributes to entities created or to existant entities*/	
-						if(isset($entities['alter']))
-						foreach($entities['alter'] as $alter)
-							$this->Wis->query($alter);
-						$arr = array();
-						foreach($wis as $key => $value) {
-							 $arr['Wisapp'][$key] = $value;
-
-						}
-						$arr['Wisapp']['wis_id'] = $user['id'];
-						$wiss = $this->Wisapp->findByName($arr['Wisapp']['name']);
-						
-						if(isset($wiss))
-							$arr['Wisapp']['id'] = $wiss['Wisapp']['id'];
-						
-						$this->Wisapp->save($arr['Wisapp']);
-
-						$dir = getcwd();
-						
-						$component_dir = str_replace("webroot","Controller\\Component\\",$dir);
-						$view_dir = str_replace("webroot","View\\Elements\\",$dir);
-						
-						$model = new File($component_dir.$res['name'].'Component.php', true);
-						$view = new File($view_dir.$res['name'].'.ctp', true);
-						$view->write("");
-						$model->write("");
-						$append_model_function = "";
-						$append = ' <?php app::uses(\'Component\', \'Controller\'); class '.$res['name'].'Component extends Component { ';
-						foreach($entities['entities'] as $entity)
-							$append_model_function .= ' $'.$entity.' = ClassRegistry::init(\''.$entity.'\'); ';
-						$model_contents = file_get_contents('wisapps/'.$res['name'].'/files/'.$res['name'].'/'.$res['name'].'.model');
-						$model_contents = str_replace('display($id) {', 'display($id) { '.$append_model_function.'', $model_contents);
-						
-						$view_contents = file_get_contents('wisapps/'.$res['name'].'/files/'.$res['name'].'/'.$res['name'].'.view');
-						$model->append($append);
-						$model->append($model_contents.'}');
-						$view->append($view_contents);
-						
-					}
-				} else {
-					
+				$candidates[$i] = array();
+				$candidates[$i]['Wisapp'] = $wisapp;
+				$candidates[$i]['points'] = $p;
+				$i++;
 				}
-			}
-				
-			if(isset($res['errors'])){
 			
-				foreach($res['errors'] as $error){
-					$this->Session->setFlash($error);
-				}
+			/* Check if searchstring matches any data in defined entities and return associated Wisapps*/
+				
+		}
+		
+		if(count($candidates)){
+			
+			foreach($candidates as $candidate){
+				
+				
+			
+				/* Check if this wisapp is among the users Favorite Wisapps*/
+				
+				/* Check the history of usage stats of this wisapp by the user*/
+				
+				/* Get Likes of the Wisapp*/
+				
+				/* Check wisapp review from BEWAKA*/
+				
+				/* Check Wisapp tags and user tag matching*/
+				
+				
+			
 			}
 		
 		}
+		
+		return $candidates;
+		
 	}
 }
+	
 
-class WisappConfig {
-
-		var $_config;
-		var $_view;
-		var $_model;
-		
-		function __construct($path) {
-			$this->_path = $path;
-			$xmlDoc = new DOMDocument();
-			$xmlDoc->load($path);
-
-			$this->_config = $xmlDoc->documentElement;
-		}
-	
-		function getWisapp() {
-	
-			$wisapp = new stdClass();
-			foreach ($this->_config->childNodes AS $item)
-			{
-				switch($item->nodeName)
-				{
-					case "name":
-						$wisapp->name = $item->nodeValue;
-						break;
-					case "description":
-						$wisapp->description = $item->nodeValue;
-						break;
-					case "tags":
-						$str="";
-						$tags = $item->getElementsByTagName("tags");
-						foreach($tags as $tag)
-						{
-							if($str) $str = $str . "," . $tag->nodeValue ;
-							else $str = $str . $tag->nodeValue ;
-						}					
-						$wisapp->tags = $str;
-						break;
-					case "version":
-						$wisapp->version = $item->nodeValue;
-						break;
-					case "logo":
-						$wisapp->logo = $item->nodeValue;
-						break;
-				}
-			}
-
-			return $wisapp;		
-		}
-		
-		function generateSQLScript() 
-		{	
-		
-			$script['create'] = array();
-			$script['entities'] = array();
-			$script['alter'] = array();
-			$script = array();
-			$entities = $this->_config->getElementsByTagName("entity");
-			foreach($entities as $entity)
-			{
-				
-				$tn = $entity->getAttribute("name");
-				$script['entities'][] = $tn;
-				
-				//$script = $script . "------------TABLE ".$tn."------------------";
-				$query = "CREATE TABLE IF NOT EXISTS ".$tn."s (id INT(11) NOT NULL AUTO_INCREMENT,".
-				"PRIMARY KEY (id)) ENGINE=INNODB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 ";
-				$script['create'][] = $query;
-				$fields = $entity->getElementsByTagName("field");
-
-				$models = App::Objects('Model');
-				
-				if(in_array($tn, $models))
-				{
-					
-					$this->loadModel($tn);
-					$fd = $this->$tn->Schema();
-					$model_fields = array_keys($fd);
-					$m_d = array();
-					foreach($model_fields as $md)
-						$m_d[] = strtolower($md);
-					
-					foreach($fields as $field)
-					{
-							
-						/* CHeck if the entity already has that field*/
-						if(!in_array(strtolower($field->nodeValue), $m_d)){
-						if($field->getAttribute("required") == true){
-							$query3 = " ALTER TABLE ".$tn."s ADD ".$field->nodeValue."_req ".$field->getAttribute("datatype")." NULL";
-						}
-						else{
-							$query3 = " ALTER TABLE ".$tn."s ADD ".$field->nodeValue." ".$field->getAttribute("datatype")." NULL";
-							$script['alter'][] = $query3;
-							}
-						}
-					}
-				}
-				else{
-				
-				$dir = getcwd();	
-				$model_dir = str_replace("webroot","Model\\",$dir);
-				$model = new File($model_dir.$tn.'.php', true);
-				
-				if($model->size() == 0)
-					$model->append('  
-
-					class '.$tn.' extends AppModel{}');
-				
-				foreach($fields as $field)
-				{
-					
-						
-						if($field->getAttribute("required") == true){
-							$query3 = " ALTER TABLE ".$tn."s ADD ".$field->nodeValue."_req ".$field->getAttribute("datatype")." NULL";
-						}
-						else{
-							$query3 = " ALTER TABLE ".$tn."s ADD ".$field->nodeValue." ".$field->getAttribute("datatype")." NULL";
-						$script['alter'][] = $query3;
-						}
-					
-					
-					
-				}
-			}
-			}
-			
-			return $script;
-		}
-	} 
 	
 	
 	
-	/* The class of the user/Waki */
 	
-	class Waki extends AppController{
-	public $uses = array('Wis','Wisapp');
-	var attributes = array();
-	var type;
-	var id;
-	var email;
-	
-	
-	/*
-	/* This Function Instantiates the class and initialises its attributes
-	/* @var id: The id of the Waki
-	*/
-	
-	function __construct($id) {
-			
-			$this->id = $id;
-			$this->attributes = $this->Wis->findById($id);
-			$this->email = $this->attributes[0]['Wis']['email'];
-			$this->type = $this->attributes[0]['Wis']['type'];
-			
-		}
-	
-	/*
-	/* This Function gets all the attributes of the Waki
-	/* @return array
-	*/	
-	function getAttributes(){
-	
-		$attributes = $this->Wis->findByID($this->id);
-		return $attribues[0]['Wis'];
-	
-	}
-	
-	/*
-	/* This Function gets the favorite Wisapps of the Waki
-	/* @return array of Wisapps
-	*/
-	function getWisApps(){
-	
-		$wisapps = $this->Wisapp->find('id', array("conditions"=>array("wis_id"=>$this_id, "status"=>1)));
-		$favorites = array();
-		
-		foreach($wisapps as $wisapp){
-			$favorites[] = new Wisapp($wisapp['Wisapp']['id']);	
-		}
-		
-		return $favorites;
-	
-	}
-	
-	/*
-	/* This Function gets the History of things the waki searches for 
-	/* @return array of History
-	*/
-	function getHistory($number){
-	
-		$history = $this->History->find('id', array("conditions"=>array("wis_id"=>$this_id), 'limit' => $number) );
-		return $history;
-	}
-	
-	
-	/*
-	/* This Function gets Experiences of the User
-	/* @return array of History
-	*/
-	function getExperiences(){
-	
-		$experiences = $this->Experience->find('id', array("conditions"=>array("wis_id"=>$this_id)));
-		return $experiences;
-	}
-	
-	/*
-	/* This Function gets Educations of the User
-	/* @return array of History
-	*/
-	function getEducations(){
-	
-		$educations = $this->Education->find('id', array("conditions"=>array("wis_id"=>$this_id)));
-		return $educations;
-	}
-	
-	
-	
-	}
-	
-	class Wisapp extends AppController{
-	
-		public $uses = array('Wis','Wisapp');
-		var result_hits;
-		var sugesstion_hits;
-		var like_hits;
-		var name;
-		var logo;
-		var fav_hits;
-		var group_id;
-		var status;
-		var tags;
-		
-		/* THis funtions initialises a WIsapp given the id of that WIsapp
-		/*
-		/*
-		*/
-		
-		function __construct($id) {
-			
-			$this->id = $id;
-			$wisapp = $this->Wisapp->findById($id);
-			$this->result_hits = $this->wisapp[0]['Wisapp']['result_hits'];
-			$this->suggestion_hits = $this->wisapp[0]['Wisapp'][''];
-			$this->like_hits = $this->wisapp[0]['Wisapp']['likes'];
-			$this->name = $this->wisapp[0]['Wisapp']['name'];
-			$this->logo = $this->wisapp[0]['Wisapp']['logo'];
-			$this->fav_hits = $this->wisapp[0]['Wisapp']['favorites'];
-			$this->group_id = $this->wisapp[0]['Wisapp']['group_id'];
-			$this->tags = $this->wisapp[0]['Wisapp']['tags'];
-			$this->status = $this->wisapp[0]['Wisapp']['status'];
-			
-		}
-		
-		/* THis funtions disables a WIsapp
-		/*
-		/*
-		*/
-		
-		function disable(){
-			
-			$data = array();
-			$data['Wisapp'] = array();
-			
-			$data['Wisapp']['id'] = $this->id;
-			
-			if($this->status == 1){
-				$data['Wisapp']['status'] = 0;
-				$this->Wisapp->save($data);
-				return true;
-			}
-			else
-				return false;
-			
-			
-		}
-		
-		/* THis funtions enables a WIsapp
-		/*
-		/*
-		*/
-		
-		function enable(){
-			
-			$data = array();
-			$data['Wisapp'] = array();
-			
-			$data['Wisapp']['id'] = $this->id;
-			
-			if($this->status == 0){
-				$data['Wisapp']['status'] = 1;
-				$this->Wisapp->save($data);
-				return true;
-			}
-			else
-				return false;	
-		}
-		
-		/* THis funtion determines if a Wisapp can execute a search string provided by the user
-		/*@var search: An array of the search string provided by the user
-		/*@return: An integer or false if the Wisapp cannot execute the string
-		*/
-		
-		function canExecute($search){
-			
-			$return = 0;
-			
-			$tags = $this->tags;
-			
-			$tags = explode(',' $tags);
-			
-			if(count($search))
-			{
-				foreach($search as $string){
-					if(in_array($string, $tags))
-						$return++;
-					if (strpos($string, $this->name))
-						$return = $return + 5;
-				}
-				
-			}
-			else
-				return false;
-				
-				
-			if($return > 0)
-				return $return;
-			else
-				return false;
-		
-		}
-		
-		function delete(){
-		
-			$this->Wisapp->delete($this->id);
-		
-		}
-		
-		function update($data){
-		
-			$this->data['Wisapp']['id'] = $this->id;
-			$this->Wisapp->save($data);
-		}
-	
-	}
 	
 	
